@@ -1,0 +1,133 @@
+# VDJ Movies - Peertube object_storage mapping for the Telegram gateway
+#
+# Merge this block into config/production.yaml (or a local-*.json override).
+#
+# How the routing works
+# ---------------------
+# Peertube's object storage layer is S3-only and enabled globally (all sections),
+# while the gateway routes per *bucket name*:
+#   * bucket "telegram" -> stored on Telegram (MTProto)
+#   * every other bucket -> stored on the local disk of the VPS (gateway data dir)
+#
+# So we give `streaming_playlists` its own bucket ("telegram") and point every
+# other section at a second bucket ("vps"). Set the gateway accordingly:
+#
+#   GATEWAY_TELEGRAM_BUCKETS=telegram
+#
+# All buckets are served by the same gateway endpoint; Peertube HeadBucket's each
+# configured bucket at startup and the gateway answers 200 for all of them.
+#
+# base_url caveat
+# ---------------
+# Peertube's buildBaseUrl() drops the bucket segment when base_url is set, and
+# appends only "<prefix><key>". The gateway expects path-style "/<bucket>/<key>",
+# so base_url MUST include the bucket name as a path segment (e.g. ".../telegram").
+# Point your reverse proxy at the gateway for those paths.
+
+object_storage:
+  enabled: true
+
+  # Address Peertube uses for the S3 API. Keep it on the private network / localhost.
+  endpoint: '127.0.0.1:9100'
+
+  region: 'us-east-1'
+
+  # The gateway only implements path-style "/<bucket>/<key>" requests.
+  force_path_style: true
+
+  # The gateway ignores object ACLs (it is not a multi-tenant store). Access
+  # control is enforced by Peertube's proxy + your reverse proxy in front of it.
+  upload_acl:
+    public: null
+    private: null
+
+  proxy:
+    # Serve private/internal video files through Peertube (the gateway is unauthenticated).
+    proxify_private_files: true
+
+  credentials:
+    access_key_id: 'vdj-gateway'       # any value, the gateway does not authenticate
+    secret_access_key: 'vdj-gateway'
+
+  # Maximum amount to send in a single request. lib-storage turns files larger
+  # than this into a multipart upload, which the gateway assembles part by part.
+  max_upload_part: 100MB
+
+  max_request_attempts: 3
+
+  # ---------------------------------------------------------------------------
+  # Streaming playlists -> Telegram
+  # ---------------------------------------------------------------------------
+  streaming_playlists:
+    bucket_name: 'telegram'
+    prefix: 'streaming-playlists/'
+    # Public URL base; MUST keep the bucket path so the gateway can route it.
+    # Example: nginx serves https://cdn.vdjmovies.example/telegram/* from the gateway.
+    base_url: 'https://cdn.vdjmovies.example/telegram'
+    # Uploading every live chunk through the gateway adds latency; enable later if needed.
+    store_live_streams: false
+
+  # ---------------------------------------------------------------------------
+  # Everything else -> local disk on the VPS (gateway "vps" bucket)
+  # ---------------------------------------------------------------------------
+  web_videos:
+    bucket_name: 'vps'
+    prefix: 'web-videos/'
+    base_url: 'https://cdn.vdjmovies.example/vps'
+
+  original_video_files:
+    bucket_name: 'vps'
+    prefix: 'original-video-files/'
+    base_url: 'https://cdn.vdjmovies.example/vps'
+
+  captions:
+    bucket_name: 'vps'
+    prefix: 'captions/'
+    base_url: 'https://cdn.vdjmovies.example/vps'
+
+  avatars:
+    bucket_name: 'vps'
+    prefix: 'avatars/'
+    base_url: 'https://cdn.vdjmovies.example/vps'
+
+  thumbnails:
+    bucket_name: 'vps'
+    prefix: 'thumbnails/'
+    base_url: 'https://cdn.vdjmovies.example/vps'
+
+  storyboards:
+    bucket_name: 'vps'
+    prefix: 'storyboards/'
+    base_url: 'https://cdn.vdjmovies.example/vps'
+
+  torrents:
+    bucket_name: 'vps'
+    prefix: 'torrents/'
+    base_url: 'https://cdn.vdjmovies.example/vps'
+
+  uploads:
+    bucket_name: 'vps'
+    prefix: 'uploads/'
+    base_url: 'https://cdn.vdjmovies.example/vps'
+
+  user_exports:
+    bucket_name: 'vps'
+    prefix: 'user-exports/'
+    base_url: 'https://cdn.vdjmovies.example/vps'
+
+  # Resumable upload parts. Never public, cleaned up automatically.
+  staging:
+    bucket_name: 'vps'
+    prefix: 'staging/'
+
+  # Cached remote files. PeerTube redirects users to these public objects.
+  cache:
+    bucket_name: 'vps'
+    prefix: 'cache/'
+    base_url: 'https://cdn.vdjmovies.example/vps'
+
+  # Remote video copies when redundancy is enabled.
+  redundancy:
+    bucket_name: 'vps'
+    prefix: 'redundancy/'
+    base_url: 'https://cdn.vdjmovies.example/vps'
