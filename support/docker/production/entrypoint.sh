@@ -1,6 +1,13 @@
 #!/bin/sh
 set -e
 
+# PeerTube builds its public URL as "<scheme>://<hostname>:<port>" itself, so
+# PEERTUBE_WEBSERVER_HOSTNAME must be a bare host. Coolify's SERVICE_FQDN_* value
+# carries the internal port (e.g. "example.com:9000"); strip any ":<port>" suffix.
+if [ -n "${PEERTUBE_WEBSERVER_HOSTNAME:-}" ]; then
+    PEERTUBE_WEBSERVER_HOSTNAME="${PEERTUBE_WEBSERVER_HOSTNAME%%:*}"
+    export PEERTUBE_WEBSERVER_HOSTNAME
+fi
 
 find /config ! -user peertube -exec chown peertube:peertube {} \; || true
 

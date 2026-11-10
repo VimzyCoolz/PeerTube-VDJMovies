@@ -24,12 +24,11 @@ services:
       - SERVICE_FQDN_PEERTUBE_9000
 
       # --- Public instance URL -------------------------------------------------
-      # PeerTube builds its public URL as "<scheme>://<hostname>:<port>", so the
-      # hostname must NOT contain a port. SERVICE_FQDN_PEERTUBE_9000 carries a
-      # ":9000" suffix, which would yield an invalid URL such as
-      # "https://host:9000:443" and crash the server on startup. COOLIFY_FQDN is
-      # the assigned domain without a port.
-      - PEERTUBE_WEBSERVER_HOSTNAME=${PEERTUBE_WEBSERVER_HOSTNAME:-${COOLIFY_FQDN}}
+      # PEERTUBE_WEBSERVER_HOSTNAME must be a bare host: PeerTube builds the URL
+      # as "<scheme>://<hostname>:<port>" itself. Coolify's SERVICE_FQDN_PEERTUBE_9000
+      # value carries the internal port (e.g. "example.com:9000"), so the entrypoint
+      # strips any ":<port>" suffix before the server reads the configuration.
+      - PEERTUBE_WEBSERVER_HOSTNAME=${PEERTUBE_WEBSERVER_HOSTNAME:-${SERVICE_FQDN_PEERTUBE_9000}}
       - PEERTUBE_WEBSERVER_HTTPS=${PEERTUBE_WEBSERVER_HTTPS:-true}
       - PEERTUBE_WEBSERVER_PORT=${PEERTUBE_WEBSERVER_PORT:-443}
 
